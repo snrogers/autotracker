@@ -249,11 +249,33 @@ async function runAutotracker(seedOrSave: string = "", duration: number = 0) {
         const positionInPattern = f % PatternSize;
 
         if (f % 128 === 0 && f !== 0) {
-            mutateState(state);
-            newPatterns();
-            clock.set(state.bpm, frame);
-            displayPatterns(patterns, save(state));
-            console.log(`\nNew pattern: BPM=${state.bpm}, Key=${state.key}, Scale=${state.scale === scales.major ? "Major" : "Minor"}`);
+            try {
+                // Pause playback briefly during transition
+                const oldBpm = state.bpm;
+                
+                // Update state and patterns
+                mutateState(state);
+                newPatterns();
+                
+                // Display the new pattern
+                displayPatterns(patterns, save(state));
+                console.log(`\nNew pattern: BPM=${state.bpm}, Key=${state.key}, Scale=${state.scale === scales.major ? "Major" : "Minor"}`);
+                
+                // Add a small delay before continuing with new pattern
+                setTimeout(() => {
+                    try {
+                        // Resume with the updated BPM
+                        clock.set(state.bpm, frame);
+                    } catch (error) {
+                        console.error("Error resuming playback:", error);
+                    }
+                }, 100);
+            } catch (error) {
+                console.error("Error during pattern transition:", error);
+                
+                // Attempt to recover by continuing with existing settings
+                clock.set(state.bpm, frame);
+            }
         }
 
         // Only show position indicator every 16 steps to avoid console spam

@@ -46,7 +46,7 @@ function Audio(ctx: AudioContext) {
 
     function SquareSynth(pan: number = 0): Synth<Note> {
         const set = (a: AudioParam, v: number) => {a.cancelScheduledValues(ctx.currentTime); a.setValueAtTime(v, ctx.currentTime); };
-        const towards = (a: AudioParam, v: number, t: number) => {a.setTargetAtTime(t, ctx.currentTime, t)};
+        const towards = (a: AudioParam, v: number, t: number) => {a.setTargetAtTime(v, ctx.currentTime, t)};
         const slide = (a: AudioParam, v: number, t: number) => {a.cancelScheduledValues(ctx.currentTime); a.setTargetAtTime(v,ctx.currentTime, t)};
 
         const wavetableTrigger = oscillatorNode("sawtooth"),
@@ -71,77 +71,205 @@ function Audio(ctx: AudioContext) {
         const decay = 0.04, sustain = 0.7, release = 0.01, level = 0.1;
 
         function noteOn(note: number, glide: number = 0) {
-            const glideTime = glide/10;
-            slide(freq, A0Frequency * 2 ** (note / 12), glideTime);
-            set(gain, level);
-            towards(gain, level * sustain, decay);
+            try {
+                // Limit and sanitize values
+                const safeNote = Math.max(-128, Math.min(127, note)); // Reasonable MIDI note range
+                const safeGlide = Math.max(0, Math.min(1, glide/10));
+                const safeFreq = A0Frequency * 2 ** (safeNote / 12);
+                
+                // Ensure frequency is in a reasonable range (20Hz - 20kHz)
+                const clampedFreq = Math.max(20, Math.min(20000, safeFreq));
+                
+                slide(freq, clampedFreq, safeGlide);
+                set(gain, level);
+                towards(gain, level * sustain, decay);
+            } catch (err) {
+                console.error("Error in noteOn:", err);
+            }
         }
         function noteOff() {
-            slide(gain, 0, release);
+            try {
+                slide(gain, 0, release);
+            } catch (err) {
+                console.error("Error in noteOff:", err);
+            }
         }
         function play(note: Note) {
-            if (note.note === "---") {
-                noteOff();
-            }  else if (note.note === 'cont') {
-                // do nothing
-            } else {
-                noteOn(note.note, note.fx?.glide);
+            try {
+                if (!note) return; // Guard against undefined notes
+                
+                if (note.note === "---") {
+                    noteOff();
+                } else if (note.note === 'cont') {
+                    // do nothing
+                } else if (typeof note.note === 'number') {
+                    noteOn(note.note, note.fx?.glide || 0);
+                }
+                
+                // Sanitize pulse width
+                const safePW = note.fx?.pulseWidth !== undefined ? 
+                    Math.max(0, Math.min(1, note.fx.pulseWidth)) : 0.0;
+                set(width, safePW);
+            } catch (err) {
+                console.error("Error in play:", err);
             }
-            set(width, note.fx?.pulseWidth ?? 0.0);
         }
 
         return {play}
     }
 
     function DrumSynth(): Synth<Drum> {
-        const toneOscillator = oscillatorNode("square", 55),
-            toneGain = gainNode(),
-            noiseWavetableTrigger = oscillatorNode("sawtooth", 20),
-            noiseWavetable = waveShaperNode(fill(1024,x => rnd() * 2 -1)),
-            noiseGain = gainNode(),
+        // Create safer noise wavetable with clamped values
+        const safeNoiseTable = new Float32Array(1024);
+        for (let i = 0; i < 1024; i++) {
+            // Ensure values are strictly between -1 and 1
+            safeNoiseTable[i] = Math.max(-0.95, Math.min(0.95, rnd() * 1.9 - 0.95));
+        }
+        
+        let toneOscillator, toneGain, noiseWavetableTrigger, noiseWavetable, noiseGain, noisePan;
+        
+        try {
+            toneOscillator = oscillatorNode("square", 55);
+            toneGain = gainNode(0); // Start with 0 gain for safety
+            noiseWavetableTrigger = oscillatorNode("sawtooth", 20);
+            noiseWavetable = waveShaperNode(safeNoiseTable);
+            noiseGain = gainNode(0); // Start with 0 gain for safety
             noisePan = stereoPannerNode(0);
 
-        toneOscillator.start();
-        noiseWavetableTrigger.start();
+            toneOscillator.start();
+            noiseWavetableTrigger.start();
 
-        toneOscillator.connect(toneGain);
-        toneGain.connect(ctx.destination);
+            toneOscillator.connect(toneGain);
+            toneGain.connect(ctx.destination);
 
-        noiseWavetableTrigger.connect(noiseWavetable);
-        noiseWavetable.connect(noiseGain);
-        noiseGain.connect(noisePan);
-        noisePan.connect(ctx.destination);
+            noiseWavetableTrigger.connect(noiseWavetable);
+            noiseWavetable.connect(noiseGain);
+            noiseGain.connect(noisePan);
+            noisePan.connect(ctx.destination);
+        } catch (err) {
+            console.error("Error initializing drum synth:", err);
+        }
 
 
+        // Create a safer version of the audio parameter manipulation functions
+        const safeSetParam = (param: AudioParam | undefined, value: number) => {
+            if (!param) return;
+            try {
+                // Clamp the value to a safe range (0 to 1 for gain, etc.)
+                const safeValue = Math.max(0, Math.min(1, value));
+                param.cancelScheduledValues(ctx.currentTime);
+                param.setValueAtTime(safeValue, ctx.currentTime);
+            } catch (err) {
+                // Silently catch errors
+            }
+        };
+        
+        const safeRampParam = (param: AudioParam | undefined, value: number, timeConstant: number) => {
+            if (!param) return;
+            try {
+                // Clamp values
+                const safeValue = Math.max(0, Math.min(1, value));
+                const safeTime = Math.max(0.01, Math.min(1, timeConstant));
+                param.setTargetAtTime(safeValue, ctx.currentTime, safeTime);
+            } catch (err) {
+                // Silently catch errors
+            }
+        };
+        
+        const safeSetEnvelope = (param: AudioParam | undefined, values: number[], duration: number) => {
+            if (!param) return;
+            try {
+                // Create a safe envelope with clamped values
+                const safeValues = new Float32Array(values.map(v => Math.max(0, Math.min(1, v))));
+                const safeDuration = Math.max(0.01, Math.min(2, duration));
+                param.setValueCurveAtTime(safeValues, ctx.currentTime, safeDuration);
+            } catch (err) {
+                // Silently catch errors
+            }
+        };
+        
+        // Create reference-safe local variables that can be used in the play function
+        let localToneOscillator = toneOscillator;
+        let localToneGain = toneGain;
+        let localNoiseGain = noiseGain;
+        let localNoisePan = noisePan;
+        
+        // Return a dummy play function if any component failed to initialize
+        if (!localToneOscillator || !localToneGain || !localNoiseGain || !localNoisePan) {
+            console.warn("Drum synth not properly initialized, using silent version");
+            return { play: () => {} };
+        }
+        
         function play(slot: Drum) {
-            const vel = slot.vel ? slot.vel : 1;
-            if (slot.drum === 'KCK') {
-                toneOscillator.detune.cancelScheduledValues(ctx.currentTime);
-                toneOscillator.detune.setValueAtTime(3000, ctx.currentTime);
-                toneOscillator.detune.setTargetAtTime(0, ctx.currentTime, 0.07);
-                toneGain.gain.cancelScheduledValues(ctx.currentTime);
-                toneGain.gain.setValueAtTime(0.2 * vel, ctx.currentTime);
-                toneGain.gain.setValueCurveAtTime(new Float32Array([0.2 * vel, 0.2 * vel, 0.13 * vel, 0.05 * vel, 0.0]), ctx.currentTime, 0.10);
-            } else if (slot.drum === 'NSS') {
-                noiseGain.gain.cancelScheduledValues(ctx.currentTime);
-                noiseGain.gain.setValueAtTime(0.1 * vel,ctx.currentTime);
-                noiseGain.gain.setValueCurveAtTime(new Float32Array([0.1 * vel,0.04 * vel,0.0]), ctx.currentTime, 0.08);
-
-                // Handle panning for all environments
-                if ("pan" in noisePan) {
-                    noisePan.pan.cancelScheduledValues(ctx.currentTime);
-                    noisePan.pan.setValueAtTime(rnd() * 0.4 - 0.2, ctx.currentTime);
+            try {
+                if (!slot || typeof slot !== 'object') return; // Guard against invalid inputs
+                
+                // Sanitize velocity to be between 0 and 1, with a safe default
+                const vel = slot.vel !== undefined ? Math.max(0.01, Math.min(0.95, slot.vel)) : 0.7;
+                
+                if (slot.drum === 'KCK') {
+                    try {
+                        // Use significantly clamped values for kick drum
+                        if (localToneOscillator && localToneOscillator.detune) {
+                            localToneOscillator.detune.cancelScheduledValues(ctx.currentTime);
+                            localToneOscillator.detune.setValueAtTime(2000, ctx.currentTime);
+                            safeRampParam(localToneOscillator.detune, 0, 0.07);
+                        }
+                        
+                        // Use conservative volume levels
+                        const kickVol = 0.15 * vel;
+                        safeSetParam(localToneGain?.gain, kickVol);
+                        
+                        // Use more conservative envelope with fewer points
+                        const kickEnvelope = [kickVol, kickVol * 0.8, kickVol * 0.3, 0];
+                        safeSetEnvelope(localToneGain?.gain, kickEnvelope, 0.12);
+                    } catch (err) {
+                        // Silent error handling
+                    }
+                } else if (slot.drum === 'NSS') {
+                    try {
+                        // Use conservative volume levels
+                        const noiseVol = 0.08 * vel;
+                        safeSetParam(localNoiseGain?.gain, noiseVol);
+                        
+                        // Simpler envelope with fewer points
+                        const noiseEnvelope = [noiseVol, 0];
+                        safeSetEnvelope(localNoiseGain?.gain, noiseEnvelope, 0.06);
+                        
+                        // Skip panning to reduce complexity
+                    } catch (err) {
+                        // Silent error handling
+                    }
+                } else if (slot.drum === 'SNR') {
+                    try {
+                        // More conservative detune values
+                        if (localToneOscillator && localToneOscillator.detune) {
+                            localToneOscillator.detune.cancelScheduledValues(ctx.currentTime);
+                            localToneOscillator.detune.setValueAtTime(1800, ctx.currentTime);
+                            safeRampParam(localToneOscillator.detune, 500, 0.04);
+                        }
+                        
+                        // Use conservative volume levels for tone component
+                        const toneVol = 0.12 * vel;
+                        safeSetParam(localToneGain?.gain, toneVol);
+                        
+                        // Simpler envelope with fewer points
+                        const toneEnvelope = [toneVol, toneVol * 0.3, 0];
+                        safeSetEnvelope(localToneGain?.gain, toneEnvelope, 0.08);
+                        
+                        // Use conservative volume for noise component
+                        const noiseVol = 0.15 * vel;
+                        safeSetParam(localNoiseGain?.gain, noiseVol);
+                        
+                        // Simpler envelope with fewer points
+                        const noiseEnvelope = [noiseVol, 0];
+                        safeSetEnvelope(localNoiseGain?.gain, noiseEnvelope, 0.12);
+                    } catch (err) {
+                        // Silent error handling
+                    }
                 }
-            } else if (slot.drum === 'SNR') {
-                toneOscillator.detune.cancelScheduledValues(ctx.currentTime);
-                toneOscillator.detune.setValueAtTime(2400, ctx.currentTime);
-                toneOscillator.detune.setTargetAtTime(600, ctx.currentTime, 0.04);
-                toneGain.gain.cancelScheduledValues(ctx.currentTime);
-                toneGain.gain.setValueAtTime(0.15 * vel, ctx.currentTime);
-                toneGain.gain.setValueCurveAtTime(new Float32Array([0.15 * vel, 0.05 * vel, 0.01 * vel, 0]), ctx.currentTime, 0.10);
-                noiseGain.gain.cancelScheduledValues(ctx.currentTime);
-                noiseGain.gain.setValueAtTime(0.2 * vel,ctx.currentTime);
-                noiseGain.gain.setValueCurveAtTime(new Float32Array([0.2 * vel,0.15 * vel,0.0]), ctx.currentTime, 0.15);
+            } catch (err) {
+                // Silent error handling to prevent crashes
             }
         }
         return {
