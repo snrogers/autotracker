@@ -133,16 +133,16 @@ function textRepr(slot: Drum | Note): string {
 
 function displayPatterns(patterns: Pattern<Slot>[], saveString: string): void {
     console.log(`Pattern ID: ${saveString}`);
-    
+
     // Display column headers
     console.log("    | CH1      | CH2      | CH3      | CH4      | DRUMS    |");
     console.log("----+----------+----------+----------+----------+----------+");
-    
+
     // Display pattern rows
     for (let i = 0; i < PatternSize; i++) {
         const rowNum = i.toString().padStart(2, '0');
         const highlight = i % 16 === 0 ? ">" : i % 4 === 0 ? "+" : " ";
-        
+
         const row = `${highlight}${rowNum} | ${textRepr(patterns[0][i]).padEnd(8)} | ${textRepr(patterns[1][i]).padEnd(8)} | ${textRepr(patterns[2][i]).padEnd(8)} | ${textRepr(patterns[3][i]).padEnd(8)} | ${textRepr(patterns[4][i]).padEnd(8)} |`;
         console.log(row);
     }
@@ -151,29 +151,29 @@ function displayPatterns(patterns: Pattern<Slot>[], saveString: string): void {
 function bpmClock() {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let fN = 0;
-    
+
     function set(bpm: number, frameFunction: (f: number) => void) {
         if (timeoutId !== null) {
             clearTimeout(timeoutId);
         }
-        
+
         const frameTime = (60000 / bpm) / 4;
-        
+
         function scheduleFrame() {
             frameFunction(fN++);
             timeoutId = setTimeout(scheduleFrame, frameTime);
         }
-        
+
         scheduleFrame();
     }
-    
+
     function stop() {
         if (timeoutId !== null) {
             clearTimeout(timeoutId);
             timeoutId = null;
         }
     }
-    
+
     return {
         set,
         stop
@@ -186,22 +186,48 @@ async function runAutotracker(seedOrSave: string = "", duration: number = 0) {
     const state: State = createInitialState(seedOrSave);
     console.log(`Starting AutoTracker with seed: ${seedOrSave || "random"}`);
     console.log(`Initial state: BPM=${state.bpm}, Key=${state.key}, Scale=${state.scale === scales.major ? "Major" : "Minor"}`);
-    
+
     let patterns = [[],[],[],[],[]] as PatternsType<FourChannelsPlusDrums>;
     const clock = bpmClock();
-    
-    // Create and initialize audio context using node-web-audio-api
-    const ctx = new AudioContext();
-    const au = Audio(ctx);
-    
-    const synths: SynthsType<FourChannelsPlusDrums> = [
-        au.SquareSynth(),
-        au.SquareSynth(-0.5),
-        au.SquareSynth(),
-        au.SquareSynth(0.5),
-        au.DrumSynth()
-    ];
-    
+
+    // Create dummy synths for silent mode
+    const createSilentSynths = (): SynthsType<FourChannelsPlusDrums> => {
+        return [
+            { play: () => {} },
+            { play: () => {} },
+            { play: () => {} },
+            { play: () => {} },
+            { play: () => {} }
+        ] as SynthsType<FourChannelsPlusDrums>;
+    };
+
+    let ctx: AudioContext;
+    let au;
+    let synths: SynthsType<FourChannelsPlusDrums>;
+
+    // Use silent mode if flag is set or if audio initialization fails
+    if (silentMode) {
+        console.log("Running in silent mode (--silent flag)");
+        synths = createSilentSynths();
+    } else {
+        try {
+            ctx = new AudioContext();
+            au = Audio(ctx);
+
+            synths = [
+                au.SquareSynth(),
+                au.SquareSynth(-0.5),
+                au.SquareSynth(),
+                au.SquareSynth(0.5),
+                au.DrumSynth()
+            ];
+        } catch (error) {
+            console.error("Error initializing audio:", error);
+            synths = createSilentSynths();
+            console.log("Running in silent mode due to audio initialization error");
+        }
+    }
+
     function newPatterns() {
         seedRNG(state.seedCode);
         patterns = [
@@ -212,16 +238,16 @@ async function runAutotracker(seedOrSave: string = "", duration: number = 0) {
             rnd() < 0.8 ? Generators.drum() : Generators.emptyDrum(),
         ];
     }
-    
+
     // Create initial patterns
     newPatterns();
     displayPatterns(patterns, save(state));
-    
+
     let endTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    
+
     function frame(f: number) {
         const positionInPattern = f % PatternSize;
-        
+
         if (f % 128 === 0 && f !== 0) {
             mutateState(state);
             newPatterns();
@@ -229,23 +255,31 @@ async function runAutotracker(seedOrSave: string = "", duration: number = 0) {
             displayPatterns(patterns, save(state));
             console.log(`\nNew pattern: BPM=${state.bpm}, Key=${state.key}, Scale=${state.scale === scales.major ? "Major" : "Minor"}`);
         }
-        
+
         // Only show position indicator every 16 steps to avoid console spam
         if (positionInPattern % 16 === 0) {
             process.stdout.write(`Position: ${positionInPattern}\r`);
         }
-        
-        // Play notes through audio engine
-        synths[0].play(patterns[0][positionInPattern]);
-        synths[1].play(patterns[1][positionInPattern]);
-        synths[2].play(patterns[2][positionInPattern]);
-        synths[3].play(patterns[3][positionInPattern]);
-        synths[4].play(patterns[4][positionInPattern]);
+
+        // Play notes through audio engine with error handling
+        try {
+            synths[0].play(patterns[0][positionInPattern]);
+            synths[1].play(patterns[1][positionInPattern]);
+            synths[2].play(patterns[2][positionInPattern]);
+            synths[3].play(patterns[3][positionInPattern]);
+            synths[4].play(patterns[4][positionInPattern]);
+        } catch (error) {
+            // Silently catch audio errors to avoid crashing the application
+            // Only log the first few errors to avoid spamming the console
+            if (f < 10) {
+                console.error(`Audio playback error at position ${positionInPattern}:`, error);
+            }
+        }
     }
-    
+
     // Start the clock
     clock.set(state.bpm, frame);
-    
+
     // Set up duration limit if specified
     if (duration > 0) {
         endTimeoutId = setTimeout(() => {
@@ -254,7 +288,7 @@ async function runAutotracker(seedOrSave: string = "", duration: number = 0) {
             process.exit(0);
         }, duration * 1000);
     }
-    
+
     // Handle keyboard input to stop playback
     process.stdin.setRawMode(true);
     process.stdin.on('data', (data) => {
@@ -266,7 +300,7 @@ async function runAutotracker(seedOrSave: string = "", duration: number = 0) {
             process.exit(0);
         }
     });
-    
+
     console.log("\nPress 'q' or Ctrl+C to stop playback");
 }
 
@@ -274,6 +308,7 @@ async function runAutotracker(seedOrSave: string = "", duration: number = 0) {
 const args = process.argv.slice(2);
 let seed = "";
 let duration = 0;
+let silentMode = false;
 
 for (let i = 0; i < args.length; i++) {
     if (args[i] === "--seed" || args[i] === "-s") {
@@ -282,6 +317,8 @@ for (let i = 0; i < args.length; i++) {
     } else if (args[i] === "--duration" || args[i] === "-d") {
         duration = parseInt(args[i+1] || "0", 10);
         i++;
+    } else if (args[i] === "--silent" || args[i] === "--no-audio") {
+        silentMode = true;
     } else if (args[i] === "--help" || args[i] === "-h") {
         console.log("AutoTracker CLI - Endless algorithmic chiptune generator");
         console.log("\nUsage:");
@@ -289,6 +326,7 @@ for (let i = 0; i < args.length; i++) {
         console.log("\nOptions:");
         console.log("  -s, --seed <seed>       Provide a seed string or save code (starts with 0x)");
         console.log("  -d, --duration <secs>   Set playback duration in seconds (0 = unlimited)");
+        console.log("  --silent, --no-audio    Run in silent mode (no audio output)");
         console.log("  -h, --help              Show this help message");
         process.exit(0);
     }

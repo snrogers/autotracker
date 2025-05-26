@@ -33,6 +33,7 @@ bun start --help
 
 - `-s, --seed <seed>`: Provide a seed string or save code (starts with 0x)
 - `-d, --duration <secs>`: Set playback duration in seconds (0 = unlimited)
+- `--silent, --no-audio`: Run in silent mode (no audio output)
 - `-h, --help`: Show help message
 
 ## Controls
