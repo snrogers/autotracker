@@ -4,13 +4,13 @@
   https://creativecommons.org/licenses/by/4.0/
 */
 
-import PatternDisplay from './display.js'
-import {choose, fill, rndInt, rnd, seedRNG} from './utils.js'
+import PatternDisplay from './display'
+import {choose, fill, rndInt, rnd, seedRNG} from './utils'
 
-import Audio from "./audio.js";
-import * as music from './theory.js'
-import * as Generators from './generators.js'
-import {scales} from "./theory.js";
+import Audio from "./audio";
+import * as music from './theory'
+import * as Generators from './generators'
+import {scales} from "./theory";
 
 const PatternSize = 64;
 

@@ -3,7 +3,7 @@
   This work is licensed under a Creative Commons Attribution 4.0 International License
   https://creativecommons.org/licenses/by/4.0/
 */
-import {fill, rnd} from './utils.js'
+import {fill, rnd} from './utils'
 
 type Synth<T> = { play: (note: T) => void}
 

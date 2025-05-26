@@ -3,6 +3,8 @@
   This work is licensed under a Creative Commons Attribution 4.0 International License
   https://creativecommons.org/licenses/by/4.0/
 */
+import { Pattern, Slot } from './model';
+
 const A0 = -12;
 
 function textRepr(slot: Slot) {
@@ -24,7 +26,7 @@ function textRepr(slot: Slot) {
     } else {
         let string = noteName(slot.note);
         if (slot.fx && slot.fx.pulseWidth) string += " w" +hex(slot.fx.pulseWidth);
-        if (slot.fx && slot.fx.glide) string +=" g" + hex(slot.fx.glide);
+        if (slot.fx && slot.fx.glide) string +="  g" + hex(slot.fx.glide);
         if (slot.vel) string += " v" + hex(slot.vel);
         return string;
     }

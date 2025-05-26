@@ -4,7 +4,8 @@
   https://creativecommons.org/licenses/by/4.0/
 */
 
-import {choose} from "./utils.js";
+import {choose} from "./utils";
+import { Key, Scale } from './model';
 
 const scales = {
         major:[0,2,3,5,7,8,10],

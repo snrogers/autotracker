@@ -3,7 +3,7 @@
   This work is licensed under a Creative Commons Attribution 4.0 International License
   https://creativecommons.org/licenses/by/4.0/
 */
-type Note = {
+export type Note = {
     note: number | "---" | 'cont',
     fx?: {
         pulseWidth?: number,
@@ -11,16 +11,16 @@ type Note = {
     },
     vel?: number
 }
-type Drum = {
+export type Drum = {
     drum: "---" | 'KCK' | 'NSS' | 'SNR'
     vel?: number
 }
 
-type Slot = Note | Drum
+export type Slot = Note | Drum
 
-type Pattern<T> = T[];
+export type Pattern<T> = T[];
 
-type Key = number & {"keyType": true}
+export type Key = number & {"keyType": true}
 
-type Progression = number[];
-type Scale = number[];
+export type Progression = number[];
+export type Scale = number[];
