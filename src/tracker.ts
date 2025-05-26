@@ -11,6 +11,7 @@ import Audio from "./audio";
 import * as music from './theory'
 import * as Generators from './generators'
 import {scales} from "./theory";
+import type {Drum, Key, Note, Pattern, Progression, Scale} from "./model";
 
 const PatternSize = 64;
 

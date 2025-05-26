@@ -4,6 +4,7 @@
   https://creativecommons.org/licenses/by/4.0/
 */
 import {fill, rnd} from './utils'
+import type {Note, Drum} from './model'
 
 type Synth<T> = { play: (note: T) => void}
 
@@ -126,7 +127,7 @@ function Audio(ctx: AudioContext) {
                 noiseGain.gain.setValueAtTime(0.1 * vel,ctx.currentTime);
                 noiseGain.gain.setValueCurveAtTime(new Float32Array([0.1 * vel,0.04 * vel,0.0]), ctx.currentTime, 0.08);
 
-                // Ugly workaround for safari being a bitch
+                // Handle panning for all environments
                 if ("pan" in noisePan) {
                     noisePan.pan.cancelScheduledValues(ctx.currentTime);
                     noisePan.pan.setValueAtTime(rnd() * 0.4 - 0.2, ctx.currentTime);

@@ -1,18 +1,17 @@
 {
-  "name": "autotracker",
+  "name": "autotracker-cli",
   "version": "0.1.0",
-  "description": "An endless randomised algorithmic Chiptune composition by [Vitling](https://www.vitling.xyz) aka [Demoscene Time Machine](http://demoscenetimemachine.com)",
+  "description": "CLI version of an endless randomised algorithmic Chiptune composition by David Whiting (Vitling/Demoscene Time Machine)",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "start": "bun src/cli.ts",
     "typecheck": "tsc --noEmit"
   },
   "author": "David Whiting",
   "license": "CC-BY-4.0",
   "devDependencies": {
     "typescript": "^5.3.3",
-    "vite": "^5.0.10"
-  }
+    "@types/bun": "latest"
+  },
+  "private": true
 }

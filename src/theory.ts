@@ -5,7 +5,7 @@
 */
 
 import {choose} from "./utils";
-import { Key, Scale } from './model';
+import type { Key, Scale } from './model';
 
 const scales = {
         major:[0,2,3,5,7,8,10],

@@ -5,7 +5,7 @@
 */
 import {choose, fill, rndInt, rnd} from './utils';
 import * as music from './theory';
-import { Key, Note, Drum, Pattern, Progression, Scale } from './model';
+import type { Key, Note, Drum, Pattern, Progression, Scale } from './model';
 
 const PatternSize = 64;
 
