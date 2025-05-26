@@ -13,5 +13,8 @@
     "typescript": "^5.3.3",
     "@types/bun": "latest"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "node-web-audio-api": "^1.0.4"
+  }
 }

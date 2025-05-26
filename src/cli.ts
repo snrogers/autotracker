@@ -10,6 +10,7 @@ import * as Generators from './generators'
 import {scales} from "./theory";
 import Audio from "./audio";
 import type {Drum, Key, Note, Pattern, Progression, Scale} from "./model";
+import { AudioContext } from 'node-web-audio-api';
 
 const PatternSize = 64;
 
@@ -189,7 +190,7 @@ async function runAutotracker(seedOrSave: string = "", duration: number = 0) {
     let patterns = [[],[],[],[],[]] as PatternsType<FourChannelsPlusDrums>;
     const clock = bpmClock();
     
-    // Create and initialize audio context
+    // Create and initialize audio context using node-web-audio-api
     const ctx = new AudioContext();
     const au = Audio(ctx);
     
