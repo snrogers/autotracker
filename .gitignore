@@ -3,3 +3,4 @@ files.*.xml
 node_modules
 /dist
 /target
+chip

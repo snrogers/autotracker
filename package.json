@@ -6,7 +6,8 @@
   "scripts": {
     "start": "bun src/cli.ts",
     "typecheck": "tsc --noEmit",
-    "build:amd64": "docker build -t autotracker-builder . && docker create --name temp-container autotracker-builder && docker cp temp-container:/app/autotracker-amd64 ./autotracker-amd64 && docker rm temp-container"
+    "build:bin": "bun build ./src/cli.ts --compile --outfile chip",
+    "build:amd64": "docker build -t autotracker-builder . && docker create --name temp-container autotracker-builder && docker cp temp-container:/app/autotracker-amd64 ./chip && docker rm temp-container"
   },
   "author": "David Whiting",
   "license": "CC-BY-4.0",
