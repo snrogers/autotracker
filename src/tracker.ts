@@ -31,6 +31,12 @@ type FourChannelsPlusDrums = [Note, Note, Note, Note, Drum]
 type PatternsType<T> = { [K in keyof T]: Pattern<T[K]> };
 type SynthsType<T> = { [K in keyof T]: Synth<T[K]> }
 
+declare global {
+  interface Window {
+    audioContext: AudioContext;
+  }
+}
+
 
 
 interface State {
@@ -137,6 +143,8 @@ function start() {
 
     // @ts-ignore
     const ctx: AudioContext = new (window.AudioContext || window.webkitAudioContext)() as AudioContext;
+    // @ts-ignore
+    window.audioContext = ctx;
     const au = Audio(ctx);
 
     const synths: SynthsType<FourChannelsPlusDrums> = [
@@ -187,4 +195,31 @@ function start() {
     clock.set(state.bpm, frame);
 }
 
-window.onload = start;
+const SEED = "0x010100700062B05142"
+window.onload = function() {
+    setInterval(() => {
+      document.getElementById("start")?.click();
+      window.audioContext.resume();
+    }, 1_000)
+
+    if (window.location.search.startsWith("?")) {
+        (document.getElementById("seed-text") as HTMLInputElement).value = window.location.search.slice(1);
+    }
+
+    let started = false;
+    document.getElementById("start")?.addEventListener("click", e => {
+        if (!started) {
+            start();
+        }
+        started = true;
+    });
+
+    document.getElementById("seed-entry")?.addEventListener("keydown", e => {
+        if (e.key === "Enter") {
+            if (!started) {
+                start();
+            }
+            started = true;
+        }
+    });
+}
